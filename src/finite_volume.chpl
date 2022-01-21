@@ -2,118 +2,168 @@ use IO;
 use DataArray;
 use FDSolver;
 use linspace;
+use Math;
 
-// proc getConserved(rho, vx, vy, P, gamma:real, vol:real ){
-// 	"""
-//     Calculate the conserved variable from the primitive
-// 	rho      is matrix of cell densities
-// 	vx       is matrix of cell x-velocity
-// 	vy       is matrix of cell y-velocity
-// 	P        is matrix of cell pressures
-// 	gamma    is ideal gas gamma
-// 	vol      is cell volume
-// 	Mass     is matrix of mass in cells
-// 	Momx     is matrix of x-momentum in cells
-// 	Momy     is matrix of y-momentum in cells
-// 	Energy   is matrix of energy in cells
-// 	"""
-// 	var Mass   = rho * vol;
-// 	var Momx   = rho * vx * vol;
-// 	var Momy   = rho * vy * vol;
-// 	var Energy = (P/(gamma-1) + 0.5*rho*(vx**2+vy**2))*vol;
+proc getConserved(rho, vx, vy, P, gamma:real, vol:real ){
+	/*
+    Calculate the conserved variable from the primitive
+	Input:
+	rho      is matrix of cell densities
+	vx       is matrix of cell x-velocity
+	vy       is matrix of cell y-velocity
+	P        is matrix of cell pressures
+	gamma    is ideal gas gamma
+	vol      is cell volume
+
+	Output: 
+	Mass     is matrix of mass in cells
+	Momx     is matrix of x-momentum in cells
+	Momy     is matrix of y-momentum in cells
+	Energy   is matrix of energy in cells
+	*/
+	var Mass   = rho * vol;
+	var Momx   = rho * vx * vol;
+	var Momy   = rho * vy * vol;
+	var Energy = (P/(gamma-1) + 0.5*rho*(vx**2+vy**2))*vol;
 	
-// 	return {Mass, Momx, Momy, Energy};
-// }
+	return (Mass, Momx, Momy, Energy);
+}
 
 
-// proc getPrimitive( Mass, Momx, Momy, Energy, gamma:real, vol:real ){
-// 	"""
-//     Calculate the primitive variable from the conservative
-// 	Mass     is matrix of mass in cells
-// 	Momx     is matrix of x-momentum in cells
-// 	Momy     is matrix of y-momentum in cells
-// 	Energy   is matrix of energy in cells
-// 	gamma    is ideal gas gamma
-// 	vol      is cell volume
-// 	rho      is matrix of cell densities
-// 	vx       is matrix of cell x-velocity
-// 	vy       is matrix of cell y-velocity
-// 	P        is matrix of cell pressures
-// 	"""
-// 	var rho = Mass / vol;
-// 	var vx  = Momx / rho / vol;
-// 	var vy  = Momy / rho / vol;
-// 	var P   = (Energy/vol - 0.5*rho * (vx**2+vy**2)) * (gamma-1);
+proc getPrimitive( Mass, Momx, Momy, Energy, gamma:real, vol:real ){
+	/*
+    Calculate the primitive variable from the conservative
+	INPUT: 
+	Mass     is matrix of mass in cells
+	Momx     is matrix of x-momentum in cells
+	Momy     is matrix of y-momentum in cells
+	Energy   is matrix of energy in cells
+	gamma    is ideal gas gamma
+	vol      is cell volume
+
+	OUTPUT:
+	rho      is matrix of cell densities
+	vx       is matrix of cell x-velocity
+	vy       is matrix of cell y-velocity
+	P        is matrix of cell pressures
+	*/
+	var rho = Mass / vol;
+	var vx  = Momx / rho / vol;
+	var vy  = Momy / rho / vol;
+	var P   = (Energy/vol - 0.5*rho * (vx**2+vy**2)) * (gamma-1);
 	
-// 	return {rho, vx, vy, P};
-// }
+	return (rho, vx, vy, P);
+}
 
-proc getGradient( f, dx){
-    // """
-    // Calculate the gradients of a field
-    // f        is a matrix of the field
-    // dx       is the cell size
-    // f_dx     is a matrix of derivative of f in the x-direction
-    // f_dy     is a matrix of derivative of f in the y-direction
-    // """
+proc getGradient( f:DataArray, dx:real){
+    /*
+    Calculate the gradients of a field
+    f        is a matrix of the field
+    dx       is the cell size
+    f_dx     is a matrix of derivative of f in the x-direction
+    f_dy     is a matrix of derivative of f in the y-direction
+
+	Notes: For discontinuities Slope Limiters are used. Discontinuity occurs for Supersonic Speeds
+    */
     var Solver = new owned FDSolver(f);
-    Solver.apply_bc(ax = 0, lt_bc = "periodic", rt_bc = "periodic", accuracy = 2);
+    Solver.apply_bc(["X" => "periodic", "Y" => "periodic"], 2);
     var f_dx = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 0);
     var f_dy = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 1);
-    return {f_dx, f_dy};
+    return (f_dx,f_dy);
 }
 
-proc sincosTest(){
-	var saveFile = open("Tests/Data/sincos2DAvgError.txt",iomode.cw);
-	var saveFileWriter = saveFile.writer();
+proc extrapolateInSpaceToFace(f: DataArray, f_dx: DataArray, f_dy: DataArray, dx: real){
+  	/*
+  	Calculate the gradients of a field
+  	f        is a matrix of the field
+  	f_dx     is a matrix of the field x-derivatives
+  	f_dy     is a matrix of the field y-derivatives
+  	dx       is the cell size
+  	f_XL     is a matrix of spatial-extrapolated values on `left' face along x-axis 
+  	f_XR     is a matrix of spatial-extrapolated values on `right' face along x-axis 
+  	f_YR     is a matrix of spatial-extrapolated values on `left' face along y-axis 
+  	f_YR     is a matrix of spatial-extrapolated values on `right' face along y-axis 
+  	*/
+  	// directions for np.roll() 
+  	var R = -1;   // right
+  	var L = 1;    // left
+  
+  	var f_XL = (f - f_dx):f.type;
+  	f_XL.arr *= dx/2;
+	//f_XL = np.roll(f_XL,R,axis=0); // Why is this even used?
+  	var f_XR = (f + f_dx):f.type;
+	f_XR.arr *= dx/2;
+  
+  	var f_YL = (f - f_dy):f.type;
+  	f_YL.arr *= dx/2;
+  	//f_YL = np.roll(f_YL,R,axis=1); // Why?
+  	var f_YR = (f + f_dy):f.type;
+	f_YR.arr *= dx/2;
+  
+  	return (f_XL, f_XR, f_YL, f_YR);
+}
 
-	var start = 100;
-	var end = 1000;
-	var step = start;
+proc getFlux(rho_L, rho_R, vx_L, vx_R, vy_L, vy_R, P_L, P_R, gamma:real){
+  	/*
+  	Calculate fluxed between 2 states with local Lax-Friedrichs/Rusanov rule 
+	Input:
+		rho_L        is a matrix of left-state  density
+		rho_R        is a matrix of right-state density
+		vx_L         is a matrix of left-state  x-velocity
+		vx_R         is a matrix of right-state x-velocity
+		vy_L         is a matrix of left-state  y-velocity
+		vy_R         is a matrix of right-state y-velocity
+		P_L          is a matrix of left-state  pressure
+		P_R          is a matrix of right-state pressure
 
-	var errors: [1..end/start] real;
-	for n in start..end by step{
-    	var sincos = new owned DataArray(eltType = real,size = {1..n,1..n},dimensions = {"Y","X"}); // An StenArray object with dimension (n-1x1)
-    	var trueValue = new owned DataArray(eltType = real,size = {1..n,1..n},dimensions = {"Y","X"});
-
-    	var grid:[1..n] real = linspace(0,2*pi,n,false);
-    	var h = grid[2]-grid[1];
-
-    	forall i in 1..n do {
-        	for j in 1..n do{
-            	sincos.arr[i,j] = sin(grid[j])*cos(grid[i]);//Sin(x)*Cos(y)
-        	}
-    	}
-    
-    	forall i in 1..n do {
-        	for j in 1..n do{
-            	trueValue.arr[i,j] = -sin(grid[i])*sin(grid[j]) + cos(grid[i])*cos(grid[j]); 
-        	}
-    	}
-
-    	var Solver = new owned FDSolver(sincos);
-    	Solver.apply_bc(["X" => "periodic", "Y" => "periodic"], 2);
-    	var result_dx = Solver.Finite_Difference(scheme="central",order=1,accuracy=2,step=h,axis=0);
-		var result_dy = Solver.Finite_Difference(scheme="central",order=1,accuracy=2,step=h,axis=1); // This is giving wrong answers
-		var result = (result_dx + result_dy):trueValue.type;
-
-   		var avgError:real = 0.0;
-    	for i in trueValue.dom{
-        	avgError += abs(result.arr[i]-trueValue.arr[i]);
-    	}
-    	
-		avgError /= n*n;
-    	errors[n/start] = avgError;
-
-    	if(n/end == 1) then saveFileWriter.writeln(h);
-    	else saveFileWriter.write(h," ");
-	}
+		gamma        is the ideal gas gamma
 	
-	saveFileWriter.writeln(errors);
-	saveFileWriter.close();
-	saveFile.fsync();
-	saveFile.close();
+	OUTPUT:
+		flux_Mass    is the matrix of mass fluxes
+		flux_Momx    is the matrix of x-momentum fluxes
+		flux_Momy    is the matrix of y-momentum fluxes
+		flux_Energy  is the matrix of energy fluxes
+  	*/
+  
+  	// left and right energies
+  	var en_L = P_L/(gamma-1)+0.5*rho_L * (vx_L**2+vy_L**2);
+  	var en_R = P_R/(gamma-1)+0.5*rho_R * (vx_R**2+vy_R**2);
+
+  	// compute star (averaged) states
+  	var rho_star  = 0.5*(rho_L + rho_R);
+  	var momx_star = 0.5*(rho_L * vx_L + rho_R * vx_R);
+  	var momy_star = 0.5*(rho_L * vy_L + rho_R * vy_R);
+  	var en_star   = 0.5*(en_L + en_R);
+  
+  	var P_star = (gamma-1)*(en_star-0.5*(momx_star**2+momy_star**2)/rho_star);
+  
+  	// compute fluxes (local Lax-Friedrichs/Rusanov)
+  	var flux_Mass   = momx_star;
+  	var flux_Momx   = momx_star**2/rho_star + P_star;
+  	var flux_Momy   = momx_star * momy_star/rho_star;
+  	var flux_Energy = (en_star+P_star) * momx_star/rho_star;
+  
+  	// find wavespeeds
+  	var C_L = sqrt(gamma*P_L/rho_L) + abs(vx_L);
+  	var C_R = sqrt(gamma*P_R/rho_R) + abs(vx_R);
+  	var C = max( C_L, C_R );
+  
+  	// add stabilizing diffusive term
+  	flux_Mass   -= C * 0.5 * (rho_L - rho_R);
+  	flux_Momx   -= C * 0.5 * (rho_L * vx_L - rho_R * vx_R);
+  	flux_Momy   -= C * 0.5 * (rho_L * vy_L - rho_R * vy_R);
+  	flux_Energy -= C * 0.5 * ( en_L - en_R );
+
+  	return (flux_Mass, flux_Momx, flux_Momy, flux_Energy);
 }
 
+/* TODO:
+		- substitute for np.roll 
+		- applyFluxes function
+		- main loop
+		- Assign datatypes in arguments
 
-sincosTest();
+	STATUS: 
+		- Compilation Errors: 0
+		- Runtime Errors: 0
+*/

@@ -21,12 +21,10 @@ module FDSolver{
 
         var lcl_cpy: DataArray;
         var lcl_dom: domain;
-        // var domi: domain;
 
         proc init(const original: DataArray){
             this.lcl_cpy = new DataArray(original.arr, original.dimensions);
             this.lcl_dom = original.dom;
-            // this.domi = original.dom;
         }
 
         proc apply_bc(const ax:int, lt_bc:string, rt_bc:string, accuracy = 1){

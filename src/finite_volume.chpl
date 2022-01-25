@@ -55,7 +55,7 @@ proc getPrimitive( Mass, Momx, Momy, Energy, gamma:real, vol:real ){
 	return (rho, vx, vy, P);
 }
 
-proc getGradient( f:DataArray, dx:real){
+proc getGradient( f, dx:real){
     /*
     Calculate the gradients of a field
     f        is a matrix of the field
@@ -65,11 +65,12 @@ proc getGradient( f:DataArray, dx:real){
 
 	Notes: For discontinuities Slope Limiters are used. Discontinuity occurs for Supersonic Speeds
     */
+	var f_DataArray = new DataArray(f,dimensions = {"Y","X"});
     var Solver = new owned FDSolver(f);
     Solver.apply_bc(["X" => "periodic", "Y" => "periodic"], 2);
     var f_dx = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 0);
     var f_dy = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 1);
-    return (f_dx,f_dy);
+    return (f_dx.arr,f_dy.arr);
 }
 
 proc extrapolateInSpaceToFace(f: DataArray, f_dx: DataArray, f_dy: DataArray, dx: real){
@@ -157,10 +158,33 @@ proc getFlux(rho_L, rho_R, vx_L, vx_R, vy_L, vy_R, P_L, P_R, gamma:real){
   	return (flux_Mass, flux_Momx, flux_Momy, flux_Energy);
 }
 
+proc applyFluxes(F, flux_F_X, flux_F_Y, dx, dt){
+  	/*
+  	Apply fluxes to conserved variables
+  		F        is a matrix of the conserved variable field
+  		flux_F_X is a matrix of the x-dir fluxes
+  		flux_F_Y is a matrix of the y-dir fluxes
+  		dx       is the cell size
+  		dt       is the timestep
+  	*/
+  	// directions for np.roll() 
+  	var R = -1;   // right
+  	var L = 1;    // left
+  
+  	// update solution
+  	F += - dt * dx * flux_F_X;
+	//   F +=   dt * dx * np.roll(flux_F_X,L,axis=0); //TODO: np.roll 
+  	F += - dt * dx * flux_F_Y;
+	//   F +=   dt * dx * np.roll(flux_F_Y,L,axis=1);	//TODO: np.roll
+  
+  	return F;
+}
+
+
+
 /* TODO:
-		- substitute for np.roll 
-		- applyFluxes function
-		- main loop
+		- substitute for np.roll
+		- main function
 		- Assign datatypes in arguments
 
 	STATUS: 

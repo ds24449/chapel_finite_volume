@@ -54,11 +54,32 @@ proc roll(a:[?D],in shift, axis = 0){
         rez[a1.size+1..D.high] = a[a2];
         return rez;
     }
-    else{
+    else if(a.rank == 2){
         // TODO: Code for 2D arrays, if possible ND arrays
-        a1 = a.domain;
-        a2 = a.domain;
-        
+        if(axis == 0){
+            if(shift<0){
+                shift *= -1;
+                a1 = {a.dim(0).low+shift+1..a.dim(0).high, a.dim(1)};
+                a2 = {a.dim(0).low..a.dim(0).low+shift, a.dim(1)};
+            }else{
+                a1 = {a.dim(0).high-shift..a.dim(0).high, a.dim(1)};
+                a2 = {a.dim(0).low..a.dim(0).high-shift-1, a.dim(1)};
+            }
+        }
+        else{
+            if(shift<0){
+                shift *= -1;
+                a1 = {a.dim(0), a.dim(1).low+shift+1..a.dim(1).high};
+                a2 = {a.dim(0), a.dim(1).low..a.dim(1).low+shift};
+            }else{
+                a1 = {a.dim(0), a.dim(1).high-shift..a.dim(1).high};
+                a2 = {a.dim(0), a.dim(1).low..a.dim(1).high-shift-1};
+            }
+        }
+        var rez:[D] a.eltType;
+        rez[a.dim(0).low..a1.dim(0).size,a.dim(1).low..a1.dim(1).size] = a[a1];
+        rez[a1.dim(0).size+1..a.dim(0).high,a1.dim(1).size+1..a.dim(1).high] = a[a2];
+        return rez;
     }
 
 }
@@ -71,9 +92,7 @@ proc rollTest(){
     writeln("Rolling on 1-D Array Passed");
 
     var a2 = reshape(a,{1..2,1..5});
-    // writeln(a2);
-    roll( a2, shift = 1, axis = 0);
-    roll( a2, shift =-1, axis = 1);
+    // writeln(a2.dim(1).high);
+    writeln(roll( a2, shift = 1, axis = 0));
+    // roll( a2, shift =-1, axis = 1);
 }
-
-rollTest();

@@ -65,7 +65,7 @@ proc getGradient( f, dx:real){
 
 	Notes: For discontinuities Slope Limiters are used. Discontinuity occurs for Supersonic Speeds
     */
-	var f_DataArray = new DataArray(f,dimensions = {"Y","X"});
+	// var f_DataArray = new DataArray(f,dimensions = {"Y","X"}); // IF not DataArray
     var Solver = new owned FDSolver(f);
     Solver.apply_bc(["X" => "periodic", "Y" => "periodic"], 2);
     var f_dx = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 0);
@@ -90,14 +90,16 @@ proc extrapolateInSpaceToFace(f: DataArray, f_dx: DataArray, f_dy: DataArray, dx
   	var L = 1;    // left
   
   	var f_XL = (f - f_dx):f.type;
-  	f_XL.arr *= dx/2;
-	//f_XL = np.roll(f_XL,R,axis=0); // Why is this even used?
+  	f_XL.arr *= dx/2; 				// NOTE: Considering this is DataArray
+	f_XL = roll(f_XL,R,axis=0);
+
   	var f_XR = (f + f_dx):f.type;
 	f_XR.arr *= dx/2;
   
   	var f_YL = (f - f_dy):f.type;
   	f_YL.arr *= dx/2;
-  	//f_YL = np.roll(f_YL,R,axis=1); // Why?
+  	f_YL = roll(f_YL,R,axis=1);
+
   	var f_YR = (f + f_dy):f.type;
 	f_YR.arr *= dx/2;
   
@@ -173,9 +175,9 @@ proc applyFluxes(F, flux_F_X, flux_F_Y, dx, dt){
   
   	// update solution
   	F += - dt * dx * flux_F_X;
-	//   F +=   dt * dx * np.roll(flux_F_X,L,axis=0); //TODO: np.roll 
+	F +=   dt * dx * roll(flux_F_X,L,axis=0); 
   	F += - dt * dx * flux_F_Y;
-	//   F +=   dt * dx * np.roll(flux_F_Y,L,axis=1);	//TODO: np.roll
+	F +=   dt * dx * roll(flux_F_Y,L,axis=1);
   
   	return F;
 }
@@ -183,7 +185,6 @@ proc applyFluxes(F, flux_F_X, flux_F_Y, dx, dt){
 
 
 /* TODO:
-		- substitute for np.roll
 		- main function
 		- Assign datatypes in arguments
 

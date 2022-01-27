@@ -42,11 +42,11 @@ proc roll(a:[?D],in shift, axis = 0){
         
         if(shift<0){
             shift *= -1;
-            a1 = {D.low+shift+1..D.high};
-            a2 = {D.low..D.low+shift};
+            a1 = {D.low+shift..D.high};
+            a2 = {D.low..D.low+shift-1};
         }else{
-            a1 = {D.high-shift..D.high};
-            a2 = {D.low..D.high-shift-1};
+            a1 = {D.high-shift+1..D.high};
+            a2 = {D.low..D.high-shift};
         }
 
         var rez:[D] a.eltType;
@@ -56,29 +56,36 @@ proc roll(a:[?D],in shift, axis = 0){
     }
     else if(a.rank == 2){
         // TODO: Code for 2D arrays, if possible ND arrays
+        var first_half:domain(2);
+        var second_half:domain(2);
         if(axis == 0){
             if(shift<0){
                 shift *= -1;
-                a1 = {a.dim(0).low+shift+1..a.dim(0).high, a.dim(1)};
-                a2 = {a.dim(0).low..a.dim(0).low+shift, a.dim(1)};
+                a1 = {a.dim(0).low+shift..a.dim(0).high, a.dim(1)};
+                a2 = {a.dim(0).low..a.dim(0).low+shift-1, a.dim(1)};
             }else{
-                a1 = {a.dim(0).high-shift..a.dim(0).high, a.dim(1)};
-                a2 = {a.dim(0).low..a.dim(0).high-shift-1, a.dim(1)};
+                a1 = {a.dim(0).high-shift+1..a.dim(0).high, a.dim(1)};
+                a2 = {a.dim(0).low..a.dim(0).high-shift, a.dim(1)};
             }
+            second_half = {a1.dim(0).size+1..a.dim(0).high,a.dim(1)};
+            first_half = {a.dim(0).low..a1.dim(0).size,a.dim(1)};
         }
         else{
             if(shift<0){
                 shift *= -1;
-                a1 = {a.dim(0), a.dim(1).low+shift+1..a.dim(1).high};
-                a2 = {a.dim(0), a.dim(1).low..a.dim(1).low+shift};
+                a1 = {a.dim(0), a.dim(1).low+shift..a.dim(1).high};
+                a2 = {a.dim(0), a.dim(1).low..a.dim(1).low+shift-1};
             }else{
-                a1 = {a.dim(0), a.dim(1).high-shift..a.dim(1).high};
-                a2 = {a.dim(0), a.dim(1).low..a.dim(1).high-shift-1};
+                a1 = {a.dim(0), a.dim(1).high-shift+1..a.dim(1).high};
+                a2 = {a.dim(0), a.dim(1).low..a.dim(1).high-shift};
             }
+            second_half = {a.dim(0),a1.dim(1).size+1..a.dim(1).high};
+            first_half = {a.dim(0),a.dim(1).low..a1.dim(1).size};
         }
+
         var rez:[D] a.eltType;
-        rez[a.dim(0).low..a1.dim(0).size,a.dim(1).low..a1.dim(1).size] = a[a1];
-        rez[a1.dim(0).size+1..a.dim(0).high,a1.dim(1).size+1..a.dim(1).high] = a[a2];
+        rez[first_half] = a[a1];
+        rez[second_half] = a[a2];
         return rez;
     }
 
@@ -87,12 +94,19 @@ proc roll(a:[?D],in shift, axis = 0){
 
 proc rollTest(){
     var a:[1..10] int = [0,1,2,3,4,5,6,7,8,9];
-    assert(roll( a, shift = 1, axis = 0) == [8, 9, 0, 1, 2, 3, 4, 5, 6, 7]);
-    assert(roll( a, shift =-1, axis = 0) == [2, 3, 4, 5, 6, 7, 8, 9, 0, 1]);
+    assert(roll( a, shift = 1, axis = 0) == [9, 0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    assert(roll( a, shift =-1, axis = 0) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+    assert(roll( a, shift = 2, axis = 0) == [8, 9, 0, 1, 2, 3, 4, 5, 6, 7]);
+    assert(roll( a, shift =-2, axis = 0) == [2, 3, 4, 5, 6, 7, 8, 9, 0, 1]);
     writeln("Rolling on 1-D Array Passed");
 
     var a2 = reshape(a,{1..2,1..5});
-    // writeln(a2.dim(1).high);
-    writeln(roll( a2, shift = 1, axis = 0));
-    // roll( a2, shift =-1, axis = 1);
+    // assert(roll( a2, shift = 1, axis = 0) == [[5, 6, 7, 8, 9], [0, 1, 2, 3, 4]]);
+    // assert(roll( a2, shift =-1, axis = 0) == [[5, 6, 7, 8, 9], [0, 1, 2, 3, 4]]);
+    // assert(roll( a2, shift = 1, axis = 1) == [[4, 0, 1, 2, 3], [9, 5, 6, 7, 8]]);
+    // assert(roll( a2, shift =-1, axis = 1) == [[1, 2, 3, 4, 0], [6, 7, 8, 9, 5]]);
+    // writeln(roll( a2, shift = 1, axis = 0));
+    // writeln(roll( a2, shift =-1, axis = 0));
+    // writeln(roll( a2, shift = 1, axis = 1));
+    // writeln(roll( a2, shift =-1, axis = 1));
 }

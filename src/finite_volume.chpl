@@ -25,7 +25,6 @@ proc getConserved(rho, vx, vy, P, gamma:real, vol:real ){
 	var Momx   = rho * vx * vol;
 	var Momy   = rho * vy * vol;
 	var Energy = (P/(gamma-1) + 0.5*rho*(vx**2+vy**2))*vol;
-	
 	return (Mass, Momx, Momy, Energy);
 }
 
@@ -51,7 +50,6 @@ proc getPrimitive( Mass, Momx, Momy, Energy, gamma:real, vol:real ){
 	var vx  = Momx / rho / vol;
 	var vy  = Momy / rho / vol;
 	var P   = (Energy/vol - 0.5*rho * (vx**2+vy**2)) * (gamma-1);
-	
 	return (rho, vx, vy, P);
 }
 
@@ -65,8 +63,8 @@ proc getGradient( f, dx:real){
 
 	Notes: For discontinuities Slope Limiters are used. Discontinuity occurs for Supersonic Speeds
     */
-	// var f_DataArray = new DataArray(f,dimensions = {"Y","X"}); // IF not DataArray
-    var Solver = new owned FDSolver(f);
+	var f_DataArray = new DataArray(f,dimensions = {"Y","X"}); // IF not DataArray
+    var Solver = new owned FDSolver(f_DataArray);
     Solver.apply_bc(["X" => "periodic", "Y" => "periodic"], 2);
     var f_dx = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 0);
     var f_dy = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 1);
@@ -182,13 +180,137 @@ proc applyFluxes(F, flux_F_X, flux_F_Y, dx, dt){
   	return F;
 }
 
+proc slopeLimit(f, dx, f_dx, f_dy){
+    /*
+	Apply slope limiter to slopes
+    	f        is a matrix of the field
+    	dx       is the cell size
+    	f_dx     is a matrix of derivative of f in the x-direction
+    	f_dy     is a matrix of derivative of f in the y-direction
+    */
+    // directions for np.roll()
+    var R = -1;   // right
+    var L =  1;    // left
 
+    f_dx = max(0.0 , min(1.0, ( (f - roll(f, L, axis=0))/dx)/(f_dx + 1.0e-8*(f_dx == 0):real))) * f_dx;
+    f_dx = max(0.0 , min(1.0, (-(f - roll(f, R, axis=0))/dx)/(f_dx + 1.0e-8*(f_dx == 0):real))) * f_dx;
+    f_dy = max(0.0 , min(1.0, ( (f - roll(f, L, axis=1))/dx)/(f_dy + 1.0e-8*(f_dy == 0):real))) * f_dy;
+    f_dy = max(0.0 , min(1.0, (-(f - roll(f, R, axis=1))/dx)/(f_dy + 1.0e-8*(f_dy == 0):real))) * f_dy;
+
+    return (f_dx, f_dy);
+}
+
+proc main_loop(){
+	/*FINITE VOLUME*/
+
+	// Simulation parameters
+	var N                      = 16; // resolution
+	var boxsize                = 1.0;
+	var gamma		           = 5.0/3.0; // ideal gas gamma
+	var courant_fac            = 0.4;
+	var t                      = 0;
+	var tEnd                   = 2;
+	var tOut                   = 0.02; // draw frequency
+	var useSlopeLimiting       = false;
+	var plotRealTime 		   = true; // switch on for plotting as the simulation goes along
+
+	// MESH
+	var dx:real = boxsize / N;
+	var vol = dx*dx;
+	var xlin = linspace(0.5*dx, boxsize-0.5*dx, N);
+	var Y:[0..N-1,0..N-1] real;
+	var X:[0..N-1,0..N-1] real;
+
+	forall i in 0..N-1{
+		forall j in 0..N-1{
+			X[i, j] = xlin[i];
+		}
+	}
+	forall i in 0..N-1{
+		forall j in 0..N-1{
+			Y[i, j] = xlin[j];
+		}
+	}
+
+	// Generate Initial Conditions - opposite moving streams with perturbation
+    var w0 = 0.1;
+    var sigma = 0.05/sqrt(2.0);
+    var rho = 1.0 + (abs(Y-0.5) < 0.25):real;
+    var vx = -0.5 + (abs(Y-0.5) < 0.25):real;
+    var vy = w0*sin(4*pi*X) * (exp(-(Y-0.25)**2 / (2 * sigma**2)) + exp(-(Y-0.75)**2/(2*sigma**2)));
+    var P = 2.5 * like_ones(X.domain);
+
+    // Get conserved variables
+    var (Mass, Momx, Momy, Energy) = getConserved(rho, vx, vy, P, gamma, vol);
+	var outputCount = 1;
+
+	// Simulation Main Loop
+    while t < tEnd{
+
+        // get Primitive variables
+        (rho, vx, vy, P) = getPrimitive(Mass, Momx, Momy, Energy, gamma, vol);
+
+        // get time step (CFL) = dx / max signal speed
+		var new_temp = reshape(dx / (sqrt(gamma * P/rho) + sqrt(vx**2 + vy**2)),{1..N*N}).sorted(); //TODO: Instead of reshaping try reduction operation
+        var dt = courant_fac*new_temp[0];
+        var plotThisTurn = false;
+        if (t + dt > outputCount*tOut){
+            dt = outputCount * tOut - t;
+            plotThisTurn = true;
+		}
+        // calculate gradients
+        var (rho_dx, rho_dy) = getGradient(rho, dx);
+        var (vx_dx,  vx_dy) = getGradient(vx,  dx);
+        var (vy_dx,  vy_dy) = getGradient(vy,  dx);
+        var (P_dx,   P_dy) = getGradient(P,   dx);
+
+        // slope limit gradients
+        if useSlopeLimiting{
+            (rho_dx, rho_dy) = slopeLimit(rho, dx, rho_dx, rho_dy);
+            (vx_dx,  vx_dy) = slopeLimit(vx, dx, vx_dx,  vx_dy);
+            (vy_dx,  vy_dy) = slopeLimit(vy, dx, vy_dx,  vy_dy);
+            (P_dx,   P_dy) = slopeLimit(P, dx, P_dx,   P_dy);
+		}
+        // extrapolate half-step in time
+        var rho_prime = rho - 0.5*dt * (vx * rho_dx + rho * vx_dx + vy * rho_dy + rho * vy_dy);
+        var vx_prime = vx - 0.5*dt * (vx * vx_dx + vy * vx_dy + (1/rho) * P_dx);
+       	var vy_prime = vy - 0.5*dt * (vx * vy_dx + vy * vy_dy + (1/rho) * P_dy);
+        var P_prime = P - 0.5*dt * (gamma * P * (vx_dx + vy_dy) + vx * P_dx + vy * P_dy);
+
+        // extrapolate in space to face centers
+        var (rho_XL, rho_XR, rho_YL, rho_YR) = extrapolateInSpaceToFace(rho_prime, rho_dx, rho_dy, dx);
+        var (vx_XL,  vx_XR,  vx_YL,  vx_YR) = extrapolateInSpaceToFace(vx_prime,  vx_dx,  vx_dy,  dx);
+        var (vy_XL,  vy_XR,  vy_YL,  vy_YR) = extrapolateInSpaceToFace(vy_prime,  vy_dx,  vy_dy,  dx);
+        var (P_XL,   P_XR,   P_YL,   P_YR) = extrapolateInSpaceToFace(P_prime,   P_dx,   P_dy,   dx);
+
+        // compute fluxes (local Lax-Friedrichs/Rusanov)
+        var (flux_Mass_X, flux_Momx_X, flux_Momy_X, flux_Energy_X) = getFlux(rho_XL, rho_XR, vx_XL, vx_XR, vy_XL, vy_XR, P_XL, P_XR, gamma);
+        var (flux_Mass_Y, flux_Momy_Y, flux_Momx_Y, flux_Energy_Y) = getFlux(rho_YL, rho_YR, vy_YL, vy_YR, vx_YL, vx_YR, P_YL, P_YR, gamma);
+
+        // update solution
+        Mass = applyFluxes(Mass, flux_Mass_X, flux_Mass_Y, dx, dt);
+        Momx = applyFluxes(Momx, flux_Momx_X, flux_Momx_Y, dx, dt);
+        Momy = applyFluxes(Momy, flux_Momy_X, flux_Momy_Y, dx, dt);
+        Energy = applyFluxes(Energy, flux_Energy_X, flux_Energy_Y, dx, dt);
+
+        // update time
+        t += dt;
+
+		if(t >= tEnd){
+			outputCount += 1;
+		}
+	}
+}
+
+main_loop();
 
 /* TODO:
-		- main function
-		- Assign datatypes in arguments
+		- Do something about that min part ERROR: line 195
+		- replace roll with stencil operation
+		- Assign datatypes in arguments Ans. Arrays
+		- Test Case 01: Total Energy Should be Conserved
 
 	STATUS: 
 		- Compilation Errors: 0
-		- Runtime Errors: 0
+		- Runtime Errors: 1
 */

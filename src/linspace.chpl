@@ -91,6 +91,10 @@ proc roll(a:[?D],in shift, axis = 0){
 
 }
 
+proc like_ones(in D,type eltType = real){
+    var res:[D] eltType = 1;
+    return res;
+}
 
 proc rollTest(){
     var a:[1..10] int = [0,1,2,3,4,5,6,7,8,9];
@@ -98,15 +102,19 @@ proc rollTest(){
     assert(roll( a, shift =-1, axis = 0) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
     assert(roll( a, shift = 2, axis = 0) == [8, 9, 0, 1, 2, 3, 4, 5, 6, 7]);
     assert(roll( a, shift =-2, axis = 0) == [2, 3, 4, 5, 6, 7, 8, 9, 0, 1]);
-    writeln("Rolling on 1-D Array Passed");
+    writeln(roll( a, shift = 1, axis = 0));
+    writeln(roll( a, shift =-1, axis = 0));
+    writeln(roll( a, shift = 2, axis = 0));
+    writeln(roll( a, shift =-2, axis = 0));
+    // writeln("Rolling on 1-D Array Passed");
 
     var a2 = reshape(a,{1..2,1..5});
     // assert(roll( a2, shift = 1, axis = 0) == [[5, 6, 7, 8, 9], [0, 1, 2, 3, 4]]);
     // assert(roll( a2, shift =-1, axis = 0) == [[5, 6, 7, 8, 9], [0, 1, 2, 3, 4]]);
     // assert(roll( a2, shift = 1, axis = 1) == [[4, 0, 1, 2, 3], [9, 5, 6, 7, 8]]);
     // assert(roll( a2, shift =-1, axis = 1) == [[1, 2, 3, 4, 0], [6, 7, 8, 9, 5]]);
-    // writeln(roll( a2, shift = 1, axis = 0));
-    // writeln(roll( a2, shift =-1, axis = 0));
-    // writeln(roll( a2, shift = 1, axis = 1));
-    // writeln(roll( a2, shift =-1, axis = 1));
+    writeln(roll( a2, shift = 1, axis = 0));
+    writeln(roll( a2, shift =-1, axis = 0));
+    writeln(roll( a2, shift = 1, axis = 1));
+    writeln(roll( a2, shift =-1, axis = 1));
 }

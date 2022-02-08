@@ -71,7 +71,7 @@ proc getGradient( f, dx:real){
     return (f_dx.arr,f_dy.arr);
 }
 
-proc extrapolateInSpaceToFace(f: DataArray, f_dx: DataArray, f_dy: DataArray, dx: real){
+proc extrapolateInSpaceToFace(f, f_dx, f_dy, dx: real){
   	/*
   	Calculate the gradients of a field
   	f        is a matrix of the field
@@ -87,19 +87,19 @@ proc extrapolateInSpaceToFace(f: DataArray, f_dx: DataArray, f_dy: DataArray, dx
   	var R = -1;   // right
   	var L = 1;    // left
   
-  	var f_XL = (f - f_dx):f.type;
-  	f_XL.arr *= dx/2; 				// NOTE: Considering this is DataArray
+  	var f_XL = (f - f_dx);
+  	f_XL *= dx/2; 				// NOTE: Considering this is DataArray
 	f_XL = roll(f_XL,R,axis=0);
 
-  	var f_XR = (f + f_dx):f.type;
-	f_XR.arr *= dx/2;
+  	var f_XR = (f + f_dx);
+	f_XR *= dx/2;
   
-  	var f_YL = (f - f_dy):f.type;
-  	f_YL.arr *= dx/2;
+  	var f_YL = (f - f_dy);
+  	f_YL *= dx/2;
   	f_YL = roll(f_YL,R,axis=1);
 
-  	var f_YR = (f + f_dy):f.type;
-	f_YR.arr *= dx/2;
+  	var f_YR = (f + f_dy);
+	f_YR *= dx/2;
   
   	return (f_XL, f_XR, f_YL, f_YR);
 }
@@ -147,7 +147,8 @@ proc getFlux(rho_L, rho_R, vx_L, vx_R, vy_L, vy_R, P_L, P_R, gamma:real){
   	// find wavespeeds
   	var C_L = sqrt(gamma*P_L/rho_L) + abs(vx_L);
   	var C_R = sqrt(gamma*P_R/rho_R) + abs(vx_R);
-  	var C = max( C_L, C_R );
+  	// var C = max( C_L, C_R );
+	var C = C_L; //TODO: remove this
   
   	// add stabilizing diffusive term
   	flux_Mass   -= C * 0.5 * (rho_L - rho_R);
@@ -191,12 +192,22 @@ proc slopeLimit(f, dx, f_dx, f_dy){
     // directions for np.roll()
     var R = -1;   // right
     var L =  1;    // left
+	var N = f_dx.domain.dim(0).high;
 
-    f_dx = max(0.0 , min(1.0, ( (f - roll(f, L, axis=0))/dx)/(f_dx + 1.0e-8*(f_dx == 0):real))) * f_dx;
-    f_dx = max(0.0 , min(1.0, (-(f - roll(f, R, axis=0))/dx)/(f_dx + 1.0e-8*(f_dx == 0):real))) * f_dx;
-    f_dy = max(0.0 , min(1.0, ( (f - roll(f, L, axis=1))/dx)/(f_dy + 1.0e-8*(f_dy == 0):real))) * f_dy;
-    f_dy = max(0.0 , min(1.0, (-(f - roll(f, R, axis=1))/dx)/(f_dy + 1.0e-8*(f_dy == 0):real))) * f_dy;
+	var new_temp = reshape((((f - roll(f, L, axis=0))/dx)/(f_dx + 1.0e-8*(f_dx == 0):real)),{1..N*N}).sorted(); //TODO: Instead of reshaping try reduction operation
+    f_dx = max(0.0 , min(1.0, new_temp[0])) * f_dx;
+	// print(new_temp[0]);
+	
+	new_temp = reshape(((-(f - roll(f, R, axis=0))/dx)/(f_dx + 1.0e-8*(f_dx == 0):real)),{1..N*N}).sorted();
+    f_dx = max(0.0 , min(1.0, new_temp[0])) * f_dx;
 
+	new_temp = reshape((( (f - roll(f, L, axis=1))/dx)/(f_dy + 1.0e-8*(f_dy == 0):real)),{1..N*N}).sorted();
+    f_dy = max(0.0 , min(1.0, new_temp[0])) * f_dy;
+	
+	new_temp = reshape(((-(f - roll(f, R, axis=1))/dx)/(f_dy + 1.0e-8*(f_dy == 0):real)),{1..N*N}).sorted();
+    f_dy = max(0.0 , min(1.0, new_temp[0])) * f_dy;
+
+	writeln(f_dx);
     return (f_dx, f_dy);
 }
 
@@ -208,10 +219,10 @@ proc main_loop(){
 	var boxsize                = 1.0;
 	var gamma		           = 5.0/3.0; // ideal gas gamma
 	var courant_fac            = 0.4;
-	var t                      = 0;
-	var tEnd                   = 2;
+	var t                      = 0.0;
+	var tEnd                   = 0.02;
 	var tOut                   = 0.02; // draw frequency
-	var useSlopeLimiting       = false;
+	var useSlopeLimiting       = true;
 	var plotRealTime 		   = true; // switch on for plotting as the simulation goes along
 
 	// MESH

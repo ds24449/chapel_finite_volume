@@ -184,8 +184,61 @@ proc applyFluxes(F, flux_F_X, flux_F_Y, dx, dt){
 
 
 
+proc main( Mass, Momx, Momy, Energy, gamma:real, vol:real ) {
+	// simulation parameters
+	var t = 0;
+	var gamma = 5/3;
+	var courant_fac = 0.4;
+	var tEnd = 2;
+
+	// simulation loop
+	while(t < tEnd) {
+		var rho, vx, vy, P: real;
+		// fetch the primitive variables
+		(rho, vx, vy, P) = getPrimitive(Mass, Momx, Momy, Energy, gamma, vol);
+
+		// calculate the time-step
+		var dt = courant_fac * np_min(dx / sqrt(gamma*p/rho) + sqrt(vx**2 + vy**2));
+		/* TODO : create the np_min function */
+
+		// calculate the gradients
+		var rho_dx, rho_dy, vx_dx, vx_dy, vy_dx, vy_dy, P_dx, P_dy: real;
+		(rho_dx, rho_dy) = getGradient(rho, dx);
+		(vx_dx, vx_dy) = getGradient(vx, dx);
+		(vy_dx, vy_dy) = getGradient(vy, dx);
+		(P_dx, P_dy) = getGradient(P, dx);
+
+		// extrapolate half-step in time
+		var rho_prime = rho - 0.5*dt * ( vx * rho_dx + rho * vx_dx + vy * rho_dy + rho * vy_dy);
+		var vx_prime = vx - 0.5*dt * ( vx * vx_dx + vy * vx_dy + (1/rho) * P_dx );
+		var vy_prime = vy - 0.5*dt * ( vx * vy_dx + vy * vy_dy + (1/rho) * P_dy );
+		var P_prime = P - 0.5*dt * ( gamma*P * (vx_dx + vy_dy)  + vx * P_dx + vy * P_dy );
+
+		// extrapolate in space to face centers
+		var rho_XL, rho_XR, rho_YL, rho_YR, vx_XL, vx_XR, vx_YL, vx_YR, vy_XL, vy_XR, vy_YL, vy_YR, P_XL, P_XR, P_YL, P_YR:real;
+		(rho_XL, rho_XR, rho_YL, rho_YR) = extrapolateInSpaceToFace(rho_prime, rho_dx, rho_dy, dx);
+		(vx_XL, vx_XR, vx_YL, vx_YR) = extrapolateInSpaceToFace(vx_prime, vx_dx, vx_dy, dx);
+		(vy_XL, vy_XR, vy_YL, vy_YR) = extrapolateInSpaceToFace(vy_prime, vy_dx, vy_dy, dx);
+		(P_XL, P_XR, P_YL, P_YR) = extrapolateInSpaceToFace(P_prime, P_dx, P_dy, dx);
+
+		// compute fluxes (local Lax-Friedrichs/Rusanov)
+		var flux_Mass_X, flux_Momx_X, flux_Momy_X, flux_Energy_X, flux_Mass_Y, flux_Momy_Y, flux_Momx_Y, flux_Energy_Y:real;
+		(flux_Mass_X, flux_Momx_X, flux_Momy_X, flux_Energy_X) = getFlux(rho_XL, rho_XR, vx_XL, vx_XR, vy_XL, vy_XR, P_XL, P_XR, gamma);
+		(flux_Mass_Y, flux_Momy_Y, flux_Momx_Y, flux_Energy_Y) = getFlux(rho_YL, rho_YR, vy_YL, vy_YR, vx_YL, vx_YR, P_YL, P_YR, gamma);
+		
+		// update solution
+		var Mass = applyFluxes(Mass, flux_Mass_X, flux_Mass_Y, dx, dt);
+		var Momx = applyFluxes(Momx, flux_Momx_X, flux_Momx_Y, dx, dt);
+		var Momy = applyFluxes(Momy, flux_Momy_X, flux_Momy_Y, dx, dt);
+		var Energy = applyFluxes(Energy, flux_Energy_X, flux_Energy_Y, dx, dt);
+  
+		// update time
+		t += dt;
+	}
+
+}
+
 /* TODO:
-		- main function
 		- Assign datatypes in arguments
 
 	STATUS: 

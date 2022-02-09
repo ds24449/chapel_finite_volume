@@ -96,6 +96,65 @@ proc like_ones(in D,type eltType = real){
     return res;
 }
 
+proc min_of_arr(A:[?D]) {
+/*
+	Calculate the smallest element in the array
+    	Parameters
+    	----------
+    	A : array_like
+        	Input array.
+
+*/
+	var (minVal, minLoc) = minloc reduce zip(A, A.domain);
+	return minVal;
+}
+
+proc max_of_arr(A:[?D]) {
+/*
+	Calculate the largest element in the array
+    	Parameters
+    	----------
+    	A : array_like
+        	Input array.
+*/
+	var (maxVal, maxLoc) = maxloc reduce zip(A, A.domain);
+	return maxVal;
+}
+
+proc np_min(A:[?d1], B:[?d2]) {
+/*
+	Calculates the minimum element from the 2 arrays
+    	Parameters
+    	----------
+    	A : array_like
+        	Input array.
+        B : array_like
+            Input array-2
+*/
+	var min_a = min_of_arr(A);
+	var min_b = min_of_arr(B);
+	var res = if min_a < min_b then min_a else min_b;
+	return res;
+}
+
+proc np_max(A:[?d1], B:[?d2]) {
+/*
+	Calculates the maximum element from the 2 arrays
+    	Parameters
+    	----------
+    	A : array_like
+        	Input array-1
+        B : array_like
+            Input array-2
+*/
+	var max_a = max_of_arr(A);
+	var max_b = max_of_arr(B);
+	var res = if max_a > max_b then max_a else max_b;
+	return res;
+}
+
+// ------------------------------- * TESTS * -----------------------------------
+
 proc rollTest(){
     var a:[1..10] int = [0,1,2,3,4,5,6,7,8,9];
     assert(roll( a, shift = 1, axis = 0) == [9, 0, 1, 2, 3, 4, 5, 6, 7, 8]);

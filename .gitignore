@@ -3,3 +3,5 @@ sin
 finite_volume
 ArrayDivision
 linspace
+trial
+src/trial.chpl

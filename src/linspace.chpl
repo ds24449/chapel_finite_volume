@@ -35,8 +35,8 @@ proc roll(a:[?D],in shift, axis = 0){
     res : ndarray
         Output array, with the same shape as `a`.
     */
-    var a1:domain(a.rank);
-    var a2:domain(a.rank);
+    var a1: D.type;
+    var a2: D.type;
     
     if(a.rank == 1){
         
@@ -67,8 +67,8 @@ proc roll(a:[?D],in shift, axis = 0){
                 a1 = {a.dim(0).high-shift+1..a.dim(0).high, a.dim(1)};
                 a2 = {a.dim(0).low..a.dim(0).high-shift, a.dim(1)};
             }
-            second_half = {a1.dim(0).size+1..a.dim(0).high,a.dim(1)};
-            first_half = {a.dim(0).low..a1.dim(0).size,a.dim(1)};
+            second_half = {a1.dim(0).size..a.dim(0).high,a.dim(1)};
+            first_half = {a.dim(0).low..a1.dim(0).size-1,a.dim(1)};
         }
         else{
             if(shift<0){
@@ -79,10 +79,10 @@ proc roll(a:[?D],in shift, axis = 0){
                 a1 = {a.dim(0), a.dim(1).high-shift+1..a.dim(1).high};
                 a2 = {a.dim(0), a.dim(1).low..a.dim(1).high-shift};
             }
-            second_half = {a.dim(0),a1.dim(1).size+1..a.dim(1).high};
-            first_half = {a.dim(0),a.dim(1).low..a1.dim(1).size};
+            second_half = {a.dim(0),a1.dim(1).size..a.dim(1).high};
+            first_half = {a.dim(0),a.dim(1).low..a1.dim(1).size-1};
         }
-
+        // writeln("[DEBUG - I]" + first_half:string + " " +a1:string + second_half:string + " " +a2:string);
         var rez:[D] a.eltType;
         rez[first_half] = a[a1];
         rez[second_half] = a[a2];

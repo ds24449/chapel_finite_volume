@@ -98,7 +98,7 @@ proc like_ones(in D,type eltType = real){
 
 proc min_of_arr(A:[?D]) {
 /*
-	Calculate the smallest element in the array
+	Calculates the smallest element in the array
     	Parameters
     	----------
     	A : array_like
@@ -111,7 +111,7 @@ proc min_of_arr(A:[?D]) {
 
 proc max_of_arr(A:[?D]) {
 /*
-	Calculate the largest element in the array
+	Calculates the largest element in the array
     	Parameters
     	----------
     	A : array_like
@@ -121,35 +121,47 @@ proc max_of_arr(A:[?D]) {
 	return maxVal;
 }
 
-proc np_min(A:[?d1], B:[?d2]) {
+proc np_maximum(A:[?d1], B:[?d2]) {
 /*
-	Calculates the minimum element from the 2 arrays
-    	Parameters
-    	----------
-    	A : array_like
-        	Input array.
-        B : array_like
+    Array element-wise comparison
+    Returns an array containing the minimum elements from the 2 arrays
+        Parameters
+        ----------
+        A: array_like
+            Input array-1
+        B: array_like
             Input array-2
 */
-	var min_a = min_of_arr(A);
-	var min_b = min_of_arr(B);
-	var res = if min_a < min_b then min_a else min_b;
+	if(A.domain != B.domain) {
+		writeln("The arrays' sizes do not match !!");
+		exit();
+	}
+	var res: [1..A.shape(1), 1..A.shape(2)] real;
+	forall (i,j) in A.domain do {
+		res(i,j) = if A(i,j) > B(i,j) then A(i,j) else B(i,j);
+	}
 	return res;
 }
 
-proc np_max(A:[?d1], B:[?d2]) {
+proc np_minimum(A:[?d1], B:[?d2]) {
 /*
-	Calculates the maximum element from the 2 arrays
-    	Parameters
-    	----------
-    	A : array_like
-        	Input array-1
-        B : array_like
+    Array element-wise comparison
+    Returns an array containing the maximum elements from the 2 arrays
+        Parameters
+        ----------
+        A: array_like
+            Input array-1
+        B: array_like
             Input array-2
 */
-	var max_a = max_of_arr(A);
-	var max_b = max_of_arr(B);
-	var res = if max_a > max_b then max_a else max_b;
+	if(A.domain != B.domain) {
+		writeln("The arrays' sizes do not match !!");
+		exit();
+	}
+	var res: [1..A.shape(1), 1..A.shape(2)] real;
+	forall (i,j) in A.domain do {
+		res(i,j) = if A(i,j) < B(i,j) then A(i,j) else B(i,j);
+	}
 	return res;
 }
 

@@ -31,8 +31,8 @@ proc roll(in a:[?D],in shift, axis = 0){
     tup1 = D.dims();
     tup2 = D.dims();
 
-    tup1(axis) = D.dim(axis).low..a1.dim(axis).size;
-    tup2(axis) = a1.dim(axis).size+1..D.dim(axis).high;
+    tup1(axis) = D.dim(axis).low..a1.dim(axis).size-1;
+    tup2(axis) = a1.dim(axis).size..D.dim(axis).high;
 
     var firstHalf:D.type = tup1;
     var secondHalf:D.type = tup2;
@@ -44,7 +44,11 @@ proc roll(in a:[?D],in shift, axis = 0){
 }
 
 proc like_ones(in D,type eltType = real){
-    var res:[D] eltType = 1;
+    var res:[D] eltType = 1:eltType;
+    return res;
+}
+proc like_zeros(in D,type eltType = real){
+    var res:[D] eltType = 0:eltType;
     return res;
 }
 
@@ -73,7 +77,7 @@ proc max_of_arr(A:[?D]) {
 	return maxVal;
 }
 
-proc np_maximum(A:[?d1], B:[?d2]) {
+proc np_maximum(in A, in B) {
 /*
     Array element-wise comparison
     Returns an array containing the minimum elements from the 2 arrays
@@ -93,7 +97,7 @@ proc np_maximum(A:[?d1], B:[?d2]) {
 	return res;
 }
 
-proc np_minimum(A:[?d1], B:[?d2]) {
+proc np_minimum(in A,in B) {
 /*
     Array element-wise comparison
     Returns an array containing the maximum elements from the 2 arrays
@@ -137,4 +141,4 @@ proc rollTest(){
     writeln(roll( a2, shift = 1, axis = 1));
     writeln(roll( a2, shift =-1, axis = 1));
 }
-rollTest();
+// rollTest();

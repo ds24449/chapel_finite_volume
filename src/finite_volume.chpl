@@ -83,7 +83,7 @@ proc extrapolateInSpaceToFace(f, f_dx, f_dy, dx: real){
   	f_YR     is a matrix of spatial-extrapolated values on `left' face along y-axis 
   	f_YR     is a matrix of spatial-extrapolated values on `right' face along y-axis 
   	*/
-  	// directions for np.roll() 
+  	// directions for np_roll() 
   	var R = -1;   // right
   	var L = 1;    // left
   
@@ -190,24 +190,14 @@ proc slopeLimit(f, dx, f_dx, f_dy){
     	f_dy     is a matrix of derivative of f in the y-direction
     */
     // directions for np.roll()
-    // var R = -1;   // right
-    // var L =  1;    // left
+    var R = -1;   // right
+    var L =  1;    // left
 	// var N = f_dx.domain.dim(0).high;
 
-	// var new_temp = reshape((((f - roll(f, L, axis=0))/dx)/(f_dx + 1.0e-8*(f_dx == 0):real)),{1..N*N}).sorted(); //TODO: Instead of reshaping try reduction operation
-    // f_dx = max(0.0 , min(1.0, new_temp[0])) * f_dx;
-	// // print(new_temp[0]);
-	
-	// new_temp = reshape(((-(f - roll(f, R, axis=0))/dx)/(f_dx + 1.0e-8*(f_dx == 0):real)),{1..N*N}).sorted();
-    // f_dx = max(0.0 , min(1.0, new_temp[0])) * f_dx;
-
-	// new_temp = reshape((( (f - roll(f, L, axis=1))/dx)/(f_dy + 1.0e-8*(f_dy == 0):real)),{1..N*N}).sorted();
-    // f_dy = max(0.0 , min(1.0, new_temp[0])) * f_dy;
-	
-	// new_temp = reshape(((-(f - roll(f, R, axis=1))/dx)/(f_dy + 1.0e-8*(f_dy == 0):real)),{1..N*N}).sorted();
-    // f_dy = max(0.0 , min(1.0, new_temp[0])) * f_dy;
-
-	// writeln(f_dx);
+	// f_dx = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), ( (f-roll(f,L,axis=0))/dx)/(f_dx + 1.0e-8*(f_dx==0):real))) * f_dx;
+	// f_dx = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), (-(f-roll(f,R,axis=0))/dx)/(f_dx + 1.0e-8*(f_dx==0):real))) * f_dx;
+	// f_dy = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), ( (f-roll(f,L,axis=1))/dx)/(f_dy + 1.0e-8*(f_dy==0):real))) * f_dy;
+	// f_dy = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), (-(f-roll(f,R,axis=1))/dx)/(f_dy + 1.0e-8*(f_dy==0):real))) * f_dy;
     return (f_dx, f_dy);
 }
 
@@ -215,7 +205,7 @@ proc main_loop(){
 	/*FINITE VOLUME*/
 
 	// Simulation parameters
-	var N                      = 8; // resolution
+	var N                      = 16; // resolution
 	var boxsize                = 1.0;
 	var gamma		           = 5.0/3.0; // ideal gas gamma
 	var courant_fac            = 0.4;

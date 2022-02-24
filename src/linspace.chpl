@@ -84,14 +84,12 @@ proc np_maximum(A:[?d1], B:[?d2]) {
         B: array_like
             Input array-2
 */
-	if(A.domain != B.domain) {
+	if(A.shape != B.shape) {
 		writeln("The arrays' sizes do not match !!");
 		exit();
 	}
-	var res: [1..A.shape(1), 1..A.shape(2)] real;
-	forall (i,j) in A.domain do {
-		res(i,j) = if A(i,j) > B(i,j) then A(i,j) else B(i,j);
-	}
+	var res: [A.domain] real;
+	forall idx in A.domain do res(idx) = max(A(idx), B(idx));
 	return res;
 }
 
@@ -106,14 +104,12 @@ proc np_minimum(A:[?d1], B:[?d2]) {
         B: array_like
             Input array-2
 */
-	if(A.domain != B.domain) {
+	if(A.shape != B.shape) {
 		writeln("The arrays' sizes do not match !!");
 		exit();
 	}
-	var res: [1..A.shape(1), 1..A.shape(2)] real;
-	forall (i,j) in A.domain do {
-		res(i,j) = if A(i,j) < B(i,j) then A(i,j) else B(i,j);
-	}
+	var res: [A.domain] real;
+	forall idx in A.domain do res(idx) = min(A(idx), B(idx));
 	return res;
 }
 

@@ -3,6 +3,7 @@ use DataArray;
 use FDSolver;
 use linspace;
 use Math;
+use ntCDF;
 
 proc getConserved(rho, vx, vy, P, gamma:real, vol:real ){
 	/*
@@ -194,10 +195,11 @@ proc slopeLimit(f, dx, f_dx, f_dy){
     var L =  1;    // left
 	// var N = f_dx.domain.dim(0).high;
 
-	// f_dx = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), ( (f-roll(f,L,axis=0))/dx)/(f_dx + 1.0e-8*(f_dx==0):real))) * f_dx;
-	// f_dx = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), (-(f-roll(f,R,axis=0))/dx)/(f_dx + 1.0e-8*(f_dx==0):real))) * f_dx;
-	// f_dy = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), ( (f-roll(f,L,axis=1))/dx)/(f_dy + 1.0e-8*(f_dy==0):real))) * f_dy;
-	// f_dy = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), (-(f-roll(f,R,axis=1))/dx)/(f_dy + 1.0e-8*(f_dy==0):real))) * f_dy;
+	//TODO: Remove like_ones, change minimum and maximum function to work with int and real
+	f_dx = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), ( (f-roll(f,L,axis=0))/dx)/(f_dx + 1.0e-8*(f_dx==0):real))) * f_dx;
+	f_dx = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), (-(f-roll(f,R,axis=0))/dx)/(f_dx + 1.0e-8*(f_dx==0):real))) * f_dx;
+	f_dy = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), ( (f-roll(f,L,axis=1))/dx)/(f_dy + 1.0e-8*(f_dy==0):real))) * f_dy;
+	f_dy = np_maximum(like_zeros(f.domain), np_minimum(like_ones(f.domain), (-(f-roll(f,R,axis=1))/dx)/(f_dy + 1.0e-8*(f_dy==0):real))) * f_dy;
     return (f_dx, f_dy);
 }
 
@@ -205,19 +207,19 @@ proc main_loop(){
 	/*FINITE VOLUME*/
 
 	// Simulation parameters
-	var N                      = 16; // resolution
+	var N                      = 128; // resolution
 	var boxsize                = 1.0;
 	var gamma		           = 5.0/3.0; // ideal gas gamma
 	var courant_fac            = 0.4;
 	var t                      = 0.0;
-	var tEnd                   = 0.02;
+	var tEnd                   = 2.0;
 	var tOut                   = 0.02; // draw frequency
 	var useSlopeLimiting       = false;
-	var plotRealTime 		   = true; // switch on for plotting as the simulation goes along
+	var saveData 		       = true; // switch on for plotting as the simulation goes along
 
 	// MESH
 	var dx:real = boxsize / N;
-	var vol = dx*dx;
+	var vol = dx**2;
 	var xlin = linspace(0.5*dx, boxsize-0.5*dx, N);
 	var Y:[0..N-1,0..N-1] real;
 	var X:[0..N-1,0..N-1] real;
@@ -254,10 +256,10 @@ proc main_loop(){
         // get time step (CFL) = dx / max signal speed
 		var new_temp = reshape(dx / (sqrt(gamma * P/rho) + sqrt(vx**2 + vy**2)),{1..N*N}).sorted(); //TODO: Instead of reshaping try reduction operation
         var dt = courant_fac*new_temp[0];
-        var plotThisTurn = false;
+        var saveThisTurn = false;
         if (t + dt > outputCount*tOut){
             dt = outputCount * tOut - t;
-            plotThisTurn = true;
+            saveThisTurn = true;
 		}
         // calculate gradients
         var (rho_dx, rho_dy) = getGradient(rho, dx);
@@ -297,17 +299,24 @@ proc main_loop(){
         // update time
         t += dt;
 
-		if(t >= tEnd){
+		
+		writeln(rho);
+		if ((saveData && saveThisTurn) || (t >= tEnd)){
+			writeln("[D] writting - " + outputCount:string );
+			write2DArray(rho, N, N, fileName = "rho_" + outputCount:string + ".nc");
+			write2DArray(Mass, N, N, fileName = "Mass_" + outputCount:string + ".nc");
+			write2DArray(Momx, N, N, fileName = "Momx_" + outputCount:string + ".nc");
+			write2DArray(Momy, N, N, fileName = "Momy_" + outputCount:string + ".nc");
+			write2DArray(Energy, N, N, fileName = "Energy_" + outputCount:string + ".nc");
 			outputCount += 1;
 		}
 	}
+	writeln("Program Ended");
 }
 
 main_loop();
 
 /* TODO:
-		- Do something about that min part ERROR: line 195
-		- replace roll with stencil operation
 		- Assign datatypes in arguments Ans. Arrays
 		- Test Case 01: Total Energy Should be Conserved
 		- line 150

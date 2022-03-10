@@ -254,8 +254,9 @@ proc main_loop(){
         (rho, vx, vy, P) = getPrimitive(Mass, Momx, Momy, Energy, gamma, vol);
 
         // get time step (CFL) = dx / max signal speed
-		var new_temp = reshape(dx / (sqrt(gamma * P/rho) + sqrt(vx**2 + vy**2)),{1..N*N}).sorted(); //TODO: Instead of reshaping try reduction operation
-        var dt = courant_fac*new_temp[0];
+		var temp_arr = dx / (sqrt(gamma * P/rho) + sqrt(vx**2 + vy**2));
+		var new_temp = min_of_arr( temp_arr );
+        var dt = courant_fac*new_temp;
         var saveThisTurn = false;
         if (t + dt > outputCount*tOut){
             dt = outputCount * tOut - t;

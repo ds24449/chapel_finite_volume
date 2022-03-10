@@ -52,6 +52,19 @@ proc like_zeros(in D,type eltType = real){
     return res;
 }
 
+proc checkForNan(A:[?d], name_of_arr: string){
+    var flag = true;
+	for idx in A.domain {
+		if ( isnan(A[idx]) ) {
+			flag = false;
+            break;
+		}
+	}
+    if(flag) then writeln("The ", name_of_arr, " array does not contain nan value(s)");
+    else writeln("The ", name_of_arr, " array contains nan value(s)");
+}
+
+
 proc min_of_arr(A:[?D]) {
 /*
 	Calculates the smallest element in the array

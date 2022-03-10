@@ -1,3 +1,4 @@
+// To install netCDF module: sudo apt-get install libnetcdf-dev libnetcdff-dev
 // chpl --fast e/GT_chpl/netcdfWrite.chpl -I/usr/include -L/usr/lib/x86_64-linux-gnu
 // Must have C_NetCDF library in the system, and use -I flag to provide path for header file
 // and -L to provide path for library

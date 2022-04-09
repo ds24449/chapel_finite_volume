@@ -7,3 +7,4 @@ trial
 src/trial.chpl
 Tests/Data
 PythonUtils
+*.png

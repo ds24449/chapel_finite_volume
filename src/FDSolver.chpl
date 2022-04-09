@@ -21,6 +21,7 @@ module FDSolver{
 
         var lcl_cpy: DataArray;
         var lcl_dom: domain;
+        var bcApplied: bool = false;
 
         proc init(const original: DataArray){
             this.lcl_cpy = new DataArray(original.arr, original.dimensions);
@@ -29,8 +30,8 @@ module FDSolver{
 
         proc apply_bc(const ax:int, lt_bc:string, rt_bc:string, accuracy = 1){
             var old_dom = this.lcl_dom;
-
-            if(lt_bc == "periodic"){
+            bcApplied = true;
+            if(lt_bc == "periodic" && rt_bc == "periodic"){
                 for i in 1..accuracy{
                     if(this.lcl_cpy.rank == 1){
                         this.lcl_cpy.arr[this.lcl_dom.low - i] = this.lcl_cpy.arr[this.lcl_dom.high + 1 - i];

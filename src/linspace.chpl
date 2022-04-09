@@ -52,7 +52,7 @@ proc like_zeros(in D,type eltType = real){
     return res;
 }
 
-proc checkForNan(A:[?d], name_of_arr: string){
+proc checkForNan(A:[?d], name_of_arr: string, iterationNo: real){
     var flag = true;
 	for idx in A.domain {
 		if ( isnan(A[idx]) ) {
@@ -60,8 +60,9 @@ proc checkForNan(A:[?d], name_of_arr: string){
             break;
 		}
 	}
-    if(flag) then writeln("The ", name_of_arr, " array does not contain nan value(s)");
-    else writeln("The ", name_of_arr, " array contains nan value(s)");
+    write("[DEBUG]: Iteration No - " + iterationNo:string);
+    if(flag) then writeln(name_of_arr + " No NAN(s)");
+    else writeln(name_of_arr + " NAN(s) FOUND!");
 }
 
 

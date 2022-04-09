@@ -5,7 +5,6 @@ import numpy as np
 
 def read_file(path):
     dataSet = nc.Dataset(path, "r")
-    print("[D] DEBUG")
     data = dataSet.variables["data"][:, :]
     return data
 
@@ -13,7 +12,7 @@ def read_file(path):
 def main():
     FOLDER_PATH = "Tests\\Data\\"
     fig = plt.figure(figsize=(4, 4), dpi=80)
-    for i in range(1, 7):
+    for i in range(1, 6):
         rho_data = np.array(read_file(FOLDER_PATH + "rho_" + str(i) + ".nc"))
         plt.cla()
         plt.imshow(rho_data.T)

@@ -5,6 +5,12 @@ use linspace;
 use Math;
 use ntCDF;
 
+proc logger(in functionName:string, in value, in varName:string){
+	writeln("[DEBUG]" + functionName);
+	writeln(varName);
+	writeln(value);
+}
+
 proc getConserved(rho, vx, vy, P, gamma:real, vol:real ){
 	/*
     Calculate the conserved variable from the primitive
@@ -64,12 +70,15 @@ proc getGradient( f, dx:real){
 
 	Notes: For discontinuities Slope Limiters are used. Discontinuity occurs for Supersonic Speeds
     */
-	var f_DataArray = new DataArray(f,dimensions = {"Y","X"}); // IF not DataArray
-    var Solver = new owned FDSolver(f_DataArray);
-    Solver.apply_bc(["X" => "periodic", "Y" => "periodic"], 2);
-    var f_dx = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 0);
-    var f_dy = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 1);
-    return (f_dx.arr,f_dy.arr);
+	// var f_DataArray = new DataArray(f,dimensions = {"Y","X"}); // IF not DataArray
+    // var Solver = new owned FDSolver(f_DataArray);
+    // Solver.apply_bc(["X" => "no_bc", "Y" => "no_bc"], 2);
+    // var f_dx = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 0);
+    // var f_dy = Solver.Finite_Difference( scheme = "central", order = 1, accuracy = 2, step = dx, axis = 1);
+    // return (f_dx.arr,f_dy.arr);
+	var f_dx = (roll(f, -1, axis = 0) - roll(f, 1, axis = 0)) / (2*dx);
+	var f_dy = (roll(f, -1, axis = 1) - roll(f, 1, axis = 1)) / (2*dx);
+	return (f_dx, f_dy);
 }
 
 proc extrapolateInSpaceToFace(f, f_dx, f_dy, dx: real){
@@ -88,19 +97,15 @@ proc extrapolateInSpaceToFace(f, f_dx, f_dy, dx: real){
   	var R = -1;   // right
   	var L = 1;    // left
   
-  	var f_XL = (f - f_dx);
-  	f_XL *= dx/2; 				// NOTE: Considering this is DataArray
+  	var f_XL = (f - f_dx) * dx/2;
 	f_XL = roll(f_XL,R,axis=0);
 
-  	var f_XR = (f + f_dx);
-	f_XR *= dx/2;
+  	var f_XR = (f + f_dx) * dx/2;
   
-  	var f_YL = (f - f_dy);
-  	f_YL *= dx/2;
+  	var f_YL = (f - f_dy) * dx/2;
   	f_YL = roll(f_YL,R,axis=1);
 
-  	var f_YR = (f + f_dy);
-	f_YR *= dx/2;
+  	var f_YR = (f + f_dy) * dx/2;
   
   	return (f_XL, f_XR, f_YL, f_YR);
 }
@@ -146,10 +151,9 @@ proc getFlux(rho_L, rho_R, vx_L, vx_R, vy_L, vy_R, P_L, P_R, gamma:real){
   	var flux_Energy = (en_star+P_star) * momx_star/rho_star;
   
   	// find wavespeeds
-  	var C_L = sqrt(gamma*P_L/rho_L) + abs(vx_L);
+  	var C_L = sqrt(gamma*P_L/rho_L) + abs(vx_L); //NANs generated here
   	var C_R = sqrt(gamma*P_R/rho_R) + abs(vx_R);
-  	// var C = max( C_L, C_R );
-	var C = C_L; //TODO: remove this
+  	var C = np_maximum( C_L, C_R );
   
   	// add stabilizing diffusive term
   	flux_Mass   -= C * 0.5 * (rho_L - rho_R);
@@ -207,7 +211,7 @@ proc main_loop(){
 	/*FINITE VOLUME*/
 
 	// Simulation parameters
-	var N                      = 128; // resolution
+	var N                      = 16; // resolution
 	var boxsize                = 1.0;
 	var gamma		           = 5.0/3.0; // ideal gas gamma
 	var courant_fac            = 0.4;
@@ -215,7 +219,7 @@ proc main_loop(){
 	var tEnd                   = 2.0;
 	var tOut                   = 0.02; // draw frequency
 	var useSlopeLimiting       = false;
-	var saveData 		       = true; // switch on for plotting as the simulation goes along
+	var saveData 		       = false; // switch on for plotting as the simulation goes along
 
 	// MESH
 	var dx:real = boxsize / N;
@@ -250,11 +254,14 @@ proc main_loop(){
 	// Simulation Main Loop
     while t < tEnd{
 
+		writeln(t);
         // get Primitive variables
         (rho, vx, vy, P) = getPrimitive(Mass, Momx, Momy, Energy, gamma, vol);
-
-        // get time step (CFL) = dx / max signal speed
-		var temp_arr = dx / (sqrt(gamma * P/rho) + sqrt(vx**2 + vy**2));
+		// logger("getPrimitive Return", rho, "RHO");
+        // logger("getPrimitive Return", vx, "VX");
+        // logger("getPrimitive Return", vy, "VY");
+        // logger("getPrimitive Return", P, "P_");
+		var temp_arr = dx / (sqrt(gamma * P/rho) + sqrt(vx**2 + vy**2)); 
 		var new_temp = min_of_arr( temp_arr );
         var dt = courant_fac*new_temp;
         var saveThisTurn = false;
@@ -267,6 +274,16 @@ proc main_loop(){
         var (vx_dx,  vx_dy) = getGradient(vx,  dx);
         var (vy_dx,  vy_dy) = getGradient(vy,  dx);
         var (P_dx,   P_dy) = getGradient(P,   dx);
+		checkForNan(rho_dx, "rho_dx", t);
+		checkForNan(rho_dy, "rho_dy", t);
+		// logger("getGradient Return", rho_dx, "RHO_dx");
+        // logger("getGradient Return", rho_dy, "RHO_dy");
+        // logger("getGradient Return", vx_dx, "VX_dx");
+        // logger("getGradient Return", vx_dy, "VX_dy");
+        // logger("getGradient Return", vy_dx, "VY_dx");
+        // logger("getGradient Return", vy_dy, "VY_dy");
+        // logger("getGradient Return", P_dx, "P_dx");
+        // logger("getGradient Return", P_dy, "P_dy");
 
         // slope limit gradients
         if useSlopeLimiting{
@@ -280,16 +297,28 @@ proc main_loop(){
         var vx_prime = vx - 0.5*dt * (vx * vx_dx + vy * vx_dy + (1/rho) * P_dx);
        	var vy_prime = vy - 0.5*dt * (vx * vy_dx + vy * vy_dy + (1/rho) * P_dy);
         var P_prime = P - 0.5*dt * (gamma * P * (vx_dx + vy_dy) + vx * P_dx + vy * P_dy);
+		checkForNan(rho_prime, "rho_prime", t);
+
+		// logger("primes", rho_prime, RHO);
+        // logger("primes", vx_prime, VX);
+        // logger("primes", vy_prime, VY);
+        // logger("primes", P_prime, P);
 
         // extrapolate in space to face centers
         var (rho_XL, rho_XR, rho_YL, rho_YR) = extrapolateInSpaceToFace(rho_prime, rho_dx, rho_dy, dx);
         var (vx_XL,  vx_XR,  vx_YL,  vx_YR) = extrapolateInSpaceToFace(vx_prime,  vx_dx,  vx_dy,  dx);
         var (vy_XL,  vy_XR,  vy_YL,  vy_YR) = extrapolateInSpaceToFace(vy_prime,  vy_dx,  vy_dy,  dx);
         var (P_XL,   P_XR,   P_YL,   P_YR) = extrapolateInSpaceToFace(P_prime,   P_dx,   P_dy,   dx);
+		checkForNan(rho_XL, "rho_XL", t);
+		checkForNan(rho_XR, "rho_XR", t);
+		checkForNan(rho_YL, "rho_YL", t);
+		checkForNan(rho_YR, "rho_YR", t);
 
         // compute fluxes (local Lax-Friedrichs/Rusanov)
         var (flux_Mass_X, flux_Momx_X, flux_Momy_X, flux_Energy_X) = getFlux(rho_XL, rho_XR, vx_XL, vx_XR, vy_XL, vy_XR, P_XL, P_XR, gamma);
         var (flux_Mass_Y, flux_Momy_Y, flux_Momx_Y, flux_Energy_Y) = getFlux(rho_YL, rho_YR, vy_YL, vy_YR, vx_YL, vx_YR, P_YL, P_YR, gamma);
+		checkForNan(flux_Mass_X, "Mass_Flux_X", t);
+		checkForNan(flux_Mass_Y, "Mass_Flux_Y", t); //First NAN Occurance
 
         // update solution
         Mass = applyFluxes(Mass, flux_Mass_X, flux_Mass_Y, dx, dt);
@@ -301,7 +330,7 @@ proc main_loop(){
         t += dt;
 
 		
-		writeln(rho);
+		// writeln(rho);
 		if ((saveData && saveThisTurn) || (t >= tEnd)){
 			writeln("[D] writting - " + outputCount:string );
 			write2DArray(rho, N, N, fileName = "rho_" + outputCount:string + ".nc");

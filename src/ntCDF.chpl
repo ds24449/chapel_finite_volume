@@ -25,8 +25,8 @@ proc write2DArray(T:[?D],nx:int,ny:int,fileName:string,dataName:c_string = "data
     }
 
     cdfError(nc_create(loc_fileName, NC_NETCDF4, ncid));
-    cdfError(nc_def_dim(ncid, "x", nx: size_t, xDimID));
-    cdfError(nc_def_dim(ncid, "y", ny: size_t, yDimID));
+    cdfError(nc_def_dim(ncid, "x", nx: c_size_t, xDimID));
+    cdfError(nc_def_dim(ncid, "y", ny: c_size_t, yDimID));
 
     dimIDs = [xDimID, yDimID];
 

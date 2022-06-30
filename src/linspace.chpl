@@ -131,6 +131,11 @@ proc np_minimum(in A,in B) {
 	return res;
 }
 
+proc LOG(in TAG,in message) {
+    write("[DEBUG] - " + TAG + " --- ");
+    writeln(message);
+}
+
 // ------------------------------- * TESTS * -----------------------------------
 
 proc rollTest(){

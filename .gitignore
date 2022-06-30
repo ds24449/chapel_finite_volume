@@ -6,5 +6,6 @@ linspace
 trial
 src/trial.chpl
 Tests/Data
+Generated/
 PythonUtils
 *.png

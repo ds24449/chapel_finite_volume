@@ -10,9 +10,9 @@ def read_file(path):
 
 
 def main():
-    FOLDER_PATH = "Tests\\Data\\"
+    FOLDER_PATH = "generated//"
     fig = plt.figure(figsize=(4, 4), dpi=80)
-    for i in range(1, 96):
+    for i in range(1, 95):
         rho_data = np.array(read_file(FOLDER_PATH + "rho_" + str(i) + ".nc"))
         print(f"From File - {i} ", np.mean(rho_data))
         plt.cla()
